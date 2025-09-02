@@ -1,148 +1,101 @@
 
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>Fast Audio Upload to Firebase</title>
+  <title>ระบบลงทะเบียนและเข้าสู่ระบบ</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .hidden { display: none; }
+    .container { margin-bottom: 20px; }
+  </style>
 </head>
 <body>
-  <h2>🎙️ Record and Upload Audio to Firebase</h2>
-  <button id="startBtn">Start Recording</button>
-  <button id="stopBtn" disabled>Stop & Upload</button>
-  <p id="status">Status: Idle</p>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js";
+  <!-- หน้า 1: ลงทะเบียนและล็อกอิน -->
+  <div id="page1">
+    <h2>ลงทะเบียน</h2>
+    <div class="container">
+      <input type="text" id="regUser" placeholder="ชื่อผู้ใช้">
+      <input type="password" id="regPass" placeholder="รหัสผ่าน">
+      <button onclick="register()">ลงทะเบียน</button>
+    </div>
 
-    const firebaseConfig = {
-  apiKey: "AIzaSyA4OrZERUoxWPiShCEWVvz1MK9cYGO3_K8",
-  authDomain: "new-record-3ccd6.firebaseapp.com",
-  projectId: "new-record-3ccd6",
-  storageBucket: "new-record-3ccd6.appspot.com",
-  messagingSenderId: "1065863160189",
-  appId: "1:1065863160189:web:25313e55b0733f5e126c14",
-  measurementId: "G-JW6N2HYR58"
-};
+    <h2>เข้าสู่ระบบ</h2>
+    <div class="container">
+      <input type="text" id="loginUser" placeholder="ชื่อผู้ใช้">
+      <input type="password" id="loginPass" placeholder="รหัสผ่าน">
+      <button onclick="login()">เข้าสู่ระบบ</button>
+    </div>
+  </div>
 
-    const app = initializeApp(firebaseConfig);
-    const storage = getStorage(app);
+  <!-- หน้า 2: หลังล็อกอิน -->
+  <div id="page2" class="hidden">
+    <h2>ยินดีต้อนรับ!</h2>
+    <button onclick="startTest()">เริ่มทำแบบทดสอบ</button>
+    <button onclick="adminAccess()">เข้าสู่แดชบอร์ด (Admin เท่านั้น)</button>
+  </div>
 
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const status = document.getElementById('status');
+  <!-- หน้าแดชบอร์ด Admin -->
+  <div id="adminLogin" class="hidden">
+    <h2>เข้าสู่แดชบอร์ด Admin</h2>
+    <input type="text" id="adminUser" placeholder="Admin User">
+    <input type="password" id="adminPass" placeholder="Admin Password">
+    <button onclick="verifyAdmin()">เข้าสู่แดชบอร์ด</button>
+  </div>
 
-    let mediaRecorder;
-    let audioChunks = [];
+  <div id="dashboard" class="hidden">
+    <h2>แดชบอร์ดผู้ดูแลระบบ</h2>
+    <p>ข้อมูลสำหรับผู้ดูแลระบบเท่านั้น</p>
+  </div>
 
-    startBtn.onclick = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
+  <script>
+    const users = {};
+    const adminCredentials = { user: "admin", pass: "1234" };
 
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-
-        // Optional compression using Web Audio API
-        const compressedBlob = await compressAudio(audioBlob);
-
-        const fileName = 'recording_' + Date.now() + '.webm';
-        const audioRef = ref(storage, 'recordings/' + fileName);
-        const uploadTask = uploadBytesResumable(audioRef, compressedBlob);
-
-        status.textContent = 'Uploading...';
-
-        uploadTask.on('state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            status.textContent = 'Upload Progress: ' + progress.toFixed(2) + '%';
-          },
-          (error) => {
-            console.error('Upload failed:', error);
-            status.textContent = 'Upload failed';
-          },
-          () => {
-            getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-              status.textContent = 'Upload complete! File URL: ' + downloadURL;
-            });
-          }
-        );
-      };
-
-      mediaRecorder.start();
-      status.textContent = 'Recording...';
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-    };
-
-    stopBtn.onclick = () => {
-      mediaRecorder.stop();
-      status.textContent = 'Processing...';
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-    };
-
-    async function compressAudio(blob) {
-      // Decode audio and re-encode with lower bitrate
-      const audioCtx = new AudioContext();
-      const arrayBuffer = await blob.arrayBuffer();
-      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
-      const offlineCtx = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
-      const source = offlineCtx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(offlineCtx.destination);
-      source.start();
-
-      const renderedBuffer = await offlineCtx.startRendering();
-      const wavBlob = bufferToWav(renderedBuffer);
-      return wavBlob;
+    function register() {
+      const user = document.getElementById("regUser").value;
+      const pass = document.getElementById("regPass").value;
+      if (user && pass) {
+        users[user] = pass;
+        alert("ลงทะเบียนสำเร็จ!");
+      } else {
+        alert("กรุณากรอกข้อมูลให้ครบ");
+      }
     }
 
-    function bufferToWav(buffer) {
-      const numOfChan = buffer.numberOfChannels;
-      const length = buffer.length * numOfChan * 2 + 44;
-      const bufferArray = new ArrayBuffer(length);
-      const view = new DataView(bufferArray);
-      const channels = [];
-      let offset = 0;
-      let pos = 0;
-
-      function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
-      function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
-
-      setUint32(0x46464952); // "RIFF"
-      setUint32(length - 8);
-      setUint32(0x45564157); // "WAVE"
-
-      setUint32(0x20746d66); // "fmt " chunk
-      setUint32(16);
-      setUint16(1);
-      setUint16(numOfChan);
-      setUint32(buffer.sampleRate);
-      setUint32(buffer.sampleRate * 2 * numOfChan);
-      setUint16(numOfChan * 2);
-      setUint16(16);
-
-      setUint32(0x61746164); // "data" chunk
-      setUint32(length - pos - 4);
-
-      for (let i = 0; i < numOfChan; i++)
-        channels.push(buffer.getChannelData(i));
-
-      while (pos < length) {
-        for (let i = 0; i < numOfChan; i++) {
-          let sample = Math.max(-1, Math.min(1, channels[i][offset]));
-          sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-          view.setInt16(pos, sample, true);
-          pos += 2;
-        }
-        offset++;
+    function login() {
+      const user = document.getElementById("loginUser").value;
+      const pass = document.getElementById("loginPass").value;
+      if (users[user] === pass) {
+        document.getElementById("page1").classList.add("hidden");
+        document.getElementById("page2").classList.remove("hidden");
+      } else {
+        alert("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
       }
+    }
 
-      return new Blob([bufferArray], { type: 'audio/wav' });
+    function startTest() {
+      alert("เข้าสู่หน้าแบบทดสอบ...");
+      // สามารถเปลี่ยนเป็น window.location.href = "test.html";
+    }
+
+    function adminAccess() {
+      document.getElementById("adminLogin").classList.remove("hidden");
+    }
+
+    function verifyAdmin() {
+      const user = document.getElementById("adminUser").value;
+      const pass = document.getElementById("adminPass").value;
+      if (user === adminCredentials.user && pass === adminCredentials.pass) {
+        document.getElementById("adminLogin").classList.add("hidden");
+        document.getElementById("dashboard").classList.remove("hidden");
+      } else {
+        alert("ข้อมูล Admin ไม่ถูกต้อง");
+      }
     }
   </script>
+
 </body>
 </html>
+
