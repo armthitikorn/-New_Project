@@ -25,7 +25,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithRedirect, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -42,27 +42,37 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
+        
+        // 🟢 กำหนด User ID ของ Admin จาก Firestore
+        const adminUid = "FDDoXtQEihWhSmnbWwcna2p4tumj2"; 
 
-        onAuthStateChanged(auth, async user => {
-            if (user) {
-                const userRoleDocRef = doc(db, "user_roles", user.uid);
-                const userRoleDoc = await getDoc(userRoleDocRef);
-
-                if (userRoleDoc.exists() && userRoleDoc.data().role === "admin") {
-                    window.location.href = "dashboard.html";
-                } else {
-                    alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                    auth.signOut();
+        async function handleLogin() {
+            try {
+                // ตรวจสอบผลลัพธ์จากการ Redirect
+                const result = await getRedirectResult(auth);
+                if (result && result.user) {
+                    const user = result.user;
+                    if (user.uid === adminUid) {
+                        window.location.href = "dashboard.html";
+                    } else {
+                        alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                        signOut(auth);
+                    }
                 }
+            } catch (error) {
+                console.error("Redirect login failed:", error);
+                alert("การเข้าสู่ระบบล้มเหลว: " + error.message);
             }
-        });
+        }
+        
+        handleLogin();
 
         document.getElementById('googleLoginBtn').addEventListener('click', async () => {
             try {
-                // 🟢 เปลี่ยนจาก signInWithPopup เป็น signInWithRedirect
+                // 🟢 เริ่มต้นการล็อกอินแบบ Redirect
                 await signInWithRedirect(auth, provider);
             } catch (error) {
-                console.error("Login failed:", error);
+                console.error("Login redirect failed:", error);
                 alert("การเข้าสู่ระบบล้มเหลว: " + error.message);
             }
         });
