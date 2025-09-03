@@ -55,9 +55,9 @@
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut, getRedirectResult } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
         import { getFirestore, collection, getDocs, doc, getDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-        import { getStorage, ref, listAll, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
+        import { getStorage } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyA4OrZERUoxWPiShCEWVvz1MK9cYGO3_K8",
@@ -74,12 +74,14 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        const adminEmail = "armthitikorn@gmail.com"; 
         const userDropdown = document.getElementById("userDropdown");
         const datePicker = document.getElementById("datePicker");
         const searchBtn = document.getElementById("searchBtn");
         const fileListContainer = document.getElementById("fileListContainer");
         const userNameDisplay = document.getElementById("userNameDisplay");
+        
+        // 🟢 กำหนด User ID ของ Admin จากภาพที่คุณแนบมา
+        const adminUid = "FDDoXtQEihWhSmnbWwcna2p4tumj2"; 
 
         function showMessage(text, type = 'info') {
             const messageBox = document.getElementById('messageBox');
@@ -179,53 +181,22 @@
             }
         }
 
-        async function handleRedirectResult() {
-            try {
-                const result = await getRedirectResult(auth);
-                if (result) {
-                    const user = result.user;
-                    const userRoleDocRef = doc(db, "user_roles", user.uid);
-                    const userRoleDoc = await getDoc(userRoleDocRef);
-                    if (userRoleDoc.exists() && userRoleDoc.data().role === "admin") {
-                        // User is admin, show dashboard
-                        userNameDisplay.textContent = user.email;
-                        fetchAllUsersAndLoadDropdown();
-                    } else {
-                        // Not an admin, sign out and redirect
-                        alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                        await auth.signOut();
-                        window.location.href = "index.html";
-                    }
+        // 🟢 Logic การตรวจสอบการเข้าสู่ระบบ
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                // ตรวจสอบว่า UID ตรงกับ Admin ที่กำหนดไว้หรือไม่
+                if (user.uid === adminUid) {
+                    userNameDisplay.textContent = user.email;
+                    fetchAllUsersAndLoadDropdown();
                 } else {
-                    // No redirect result, check for existing user
-                    onAuthStateChanged(auth, user => {
-                        if (user) {
-                            // User is already logged in
-                            const userRoleDocRef = doc(db, "user_roles", user.uid);
-                            getDoc(userRoleDocRef).then(userRoleDoc => {
-                                if (userRoleDoc.exists() && userRoleDoc.data().role === "admin") {
-                                    userNameDisplay.textContent = user.email;
-                                    fetchAllUsersAndLoadDropdown();
-                                } else {
-                                    alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                                    auth.signOut();
-                                    window.location.href = "index.html";
-                                }
-                            });
-                        } else {
-                            // No user logged in, redirect to login page
-                            window.location.href = "index.html";
-                        }
-                    });
+                    alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                    signOut(auth);
+                    window.location.href = "index.html";
                 }
-            } catch (error) {
-                console.error("Authentication redirect error:", error);
-                alert("เกิดข้อผิดพลาดในการล็อกอิน: " + error.message);
+            } else {
                 window.location.href = "index.html";
             }
-        }
-        
-        handleRedirectResult();
+        });
 
         searchBtn.addEventListener('click', () => {
             const selectedUid = userDropdown.value;
