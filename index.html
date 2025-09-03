@@ -1,101 +1,91 @@
-
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>ระบบลงทะเบียนและเข้าสู่ระบบ</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; }
-    .hidden { display: none; }
-    .container { margin-bottom: 20px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เข้าสู่ระบบผู้ดูแลระบบ</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        body { font-family: 'Tahoma', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #333; }
+        .login-container { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
+        h1 { color: #004085; margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1em; }
+        .login-btn { background-color: #004085; color: white; border: none; padding: 15px 20px; border-radius: 8px; font-size: 1.1em; cursor: pointer; width: 100%; transition: background-color 0.3s ease; }
+        .login-btn:hover { background-color: #002d6b; }
+    </style>
 </head>
 <body>
-
-  <!-- หน้า 1: ลงทะเบียนและล็อกอิน -->
-  <div id="page1">
-    <h2>ลงทะเบียน</h2>
-    <div class="container">
-      <input type="text" id="regUser" placeholder="ชื่อผู้ใช้">
-      <input type="password" id="regPass" placeholder="รหัสผ่าน">
-      <button onclick="register()">ลงทะเบียน</button>
+    <div class="login-container">
+        <h1>เข้าสู่ระบบผู้ดูแลระบบ</h1>
+        <p>กรุณาเข้าสู่ระบบด้วยอีเมลและรหัสผ่าน</p>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">อีเมล</label>
+                <input type="email" id="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">รหัสผ่าน</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" class="login-btn">เข้าสู่ระบบ</button>
+        </form>
     </div>
 
-    <h2>เข้าสู่ระบบ</h2>
-    <div class="container">
-      <input type="text" id="loginUser" placeholder="ชื่อผู้ใช้">
-      <input type="password" id="loginPass" placeholder="รหัสผ่าน">
-      <button onclick="login()">เข้าสู่ระบบ</button>
-    </div>
-  </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4OrZERUoxWPiShCEWVvz1MK9cYGO3_K8",
+            authDomain: "new-record-3ccd6.firebaseapp.com",
+            projectId: "new-record-3ccd6",
+            storageBucket: "new-record-3ccd6.firebasestorage.app",
+            messagingSenderId: "1065863160189",
+            appId: "1:1065863160189:web:25313e55b0733f5e126c14",
+            measurementId: "G-JW6N2HYR58"
+        };
 
-  <!-- หน้า 2: หลังล็อกอิน -->
-  <div id="page2" class="hidden">
-    <h2>ยินดีต้อนรับ!</h2>
-    <button onclick="startTest()">เริ่มทำแบบทดสอบ</button>
-    <button onclick="adminAccess()">เข้าสู่แดชบอร์ด (Admin เท่านั้น)</button>
-  </div>
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
 
-  <!-- หน้าแดชบอร์ด Admin -->
-  <div id="adminLogin" class="hidden">
-    <h2>เข้าสู่แดชบอร์ด Admin</h2>
-    <input type="text" id="adminUser" placeholder="Admin User">
-    <input type="password" id="adminPass" placeholder="Admin Password">
-    <button onclick="verifyAdmin()">เข้าสู่แดชบอร์ด</button>
-  </div>
+        // 🟢 กำหนดอีเมล Admin ที่ได้รับอนุญาต
+        const adminEmail = "admin@example.com"; 
 
-  <div id="dashboard" class="hidden">
-    <h2>แดชบอร์ดผู้ดูแลระบบ</h2>
-    <p>ข้อมูลสำหรับผู้ดูแลระบบเท่านั้น</p>
-  </div>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
-  <script>
-    const users = {};
-    const adminCredentials = { user: "admin", pass: "1234" };
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
 
-    function register() {
-      const user = document.getElementById("regUser").value;
-      const pass = document.getElementById("regPass").value;
-      if (user && pass) {
-        users[user] = pass;
-        alert("ลงทะเบียนสำเร็จ!");
-      } else {
-        alert("กรุณากรอกข้อมูลให้ครบ");
-      }
-    }
-
-    function login() {
-      const user = document.getElementById("loginUser").value;
-      const pass = document.getElementById("loginPass").value;
-      if (users[user] === pass) {
-        document.getElementById("page1").classList.add("hidden");
-        document.getElementById("page2").classList.remove("hidden");
-      } else {
-        alert("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
-      }
-    }
-
-    function startTest() {
-      alert("เข้าสู่หน้าแบบทดสอบ...");
-      // สามารถเปลี่ยนเป็น window.location.href = "test.html";
-    }
-
-    function adminAccess() {
-      document.getElementById("adminLogin").classList.remove("hidden");
-    }
-
-    function verifyAdmin() {
-      const user = document.getElementById("adminUser").value;
-      const pass = document.getElementById("adminPass").value;
-      if (user === adminCredentials.user && pass === adminCredentials.pass) {
-        document.getElementById("adminLogin").classList.add("hidden");
-        document.getElementById("dashboard").classList.remove("hidden");
-      } else {
-        alert("ข้อมูล Admin ไม่ถูกต้อง");
-      }
-    }
-  </script>
-
+                // 🟢 ตรวจสอบอีเมลที่ล็อกอินว่าเป็น Admin หรือไม่
+                if (user.email === adminEmail) {
+                    window.location.href = "dashboard.html";
+                } else {
+                    alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                    // หากไม่ใช่ Admin ให้บังคับออกจากระบบ
+                    auth.signOut(); 
+                }
+            } catch (error) {
+                console.error("Login failed:", error);
+                let errorMessage = "การเข้าสู่ระบบล้มเหลว: ";
+                switch (error.code) {
+                    case 'auth/wrong-password':
+                        errorMessage += "รหัสผ่านไม่ถูกต้อง";
+                        break;
+                    case 'auth/user-not-found':
+                        errorMessage += "ไม่พบบัญชีผู้ใช้";
+                        break;
+                    default:
+                        errorMessage += error.message;
+                }
+                alert(errorMessage);
+            }
+        });
+    </script>
 </body>
 </html>
-
