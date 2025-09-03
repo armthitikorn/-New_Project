@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แดชบอร์ดไฟล์เสียง</title>
+    <title>แดชบอร์ดสำหรับผู้ดูแลระบบ</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
         body { font-family: 'Tahoma', sans-serif; background: #f0f2f5; padding: 20px; color: #333; display: flex; flex-direction: column; align-items: center; }
@@ -14,6 +14,19 @@
         .file-item { background: #f8f9fa; border: 1px solid #e2e6ea; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
         .file-item p { font-weight: bold; color: #0056b3; margin: 0; }
         .file-item audio { width: 100%; margin-top: 10px; }
+        .controls { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; justify-content: center; align-items: center; }
+        .controls select, .controls input[type="date"] { padding: 8px 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; }
+        .controls button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .controls button:hover { background-color: #0056b3; }
+        #messageBox {
+            display: none;
+            background-color: #d1e7dd;
+            color: #0f5132;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -21,26 +34,32 @@
         <h1>แดชบอร์ดไฟล์เสียงที่อัปโหลด</h1>
         <div class="user-info">
             <b>ผู้ใช้ปัจจุบัน:</b> <span id="userNameDisplay">กำลังโหลด...</span>
+            <button onclick="logout()">ออกจากระบบ</button>
         </div>
         
-        <div style="margin-top: 20px;">
+        <div class="controls">
             <b>เลือกผู้ใช้งาน:</b>
             <select id="userDropdown">
                 <option value="">-- เลือกอีเมล --</option>
             </select>
+            <b>เลือกวันที่:</b>
+            <input type="date" id="datePicker">
+            <button id="searchBtn">ค้นหา</button>
         </div>
 
+        <div id="messageBox"></div>
         <div id="fileListContainer" class="dashboard-section">
-            <p>กำลังโหลดรายการไฟล์...</p>
+            <p>กรุณาเลือกผู้ใช้งานและวันที่เพื่อแสดงไฟล์เสียง</p>
         </div>
     </div>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, getDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
         import { getStorage, ref, listAll, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
 
+        // *** เปลี่ยนแปลงข้อมูล Firebase Project ของคุณที่นี่ ***
         const firebaseConfig = {
             apiKey: "AIzaSyA4OrZERUoxWPiShCEWVvz1MK9cYGO3_K8",
             authDomain: "new-record-3ccd6.firebaseapp.com",
@@ -56,40 +75,37 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        async function loadAudioFiles(userId) {
-            const fileListContainer = document.getElementById("fileListContainer");
-            fileListContainer.innerHTML = "<h4>กำลังโหลดรายการไฟล์...</h4>";
+        // 🟢 กำหนดอีเมล Admin ที่ได้รับอนุญาต
+        const adminEmail = "admin@example.com"; 
+        const userDropdown = document.getElementById("userDropdown");
+        const datePicker = document.getElementById("datePicker");
+        const searchBtn = document.getElementById("searchBtn");
+        const fileListContainer = document.getElementById("fileListContainer");
+        const userNameDisplay = document.getElementById("userNameDisplay");
 
-            try {
-                const userFolderRef = ref(storage, `audios/${userId}`);
-                const fileList = await listAll(userFolderRef);
-
-                fileListContainer.innerHTML = "";
-                if (fileList.items.length === 0) {
-                    fileListContainer.innerHTML = "<p>ไม่พบไฟล์เสียงที่อัปโหลด</p>";
-                    return;
-                }
-
-                fileList.items.forEach(async (fileRef) => {
-                    const fileName = fileRef.name;
-                    const fileUrl = await getDownloadURL(fileRef);
-
-                    const fileDiv = document.createElement("div");
-                    fileDiv.className = "file-item";
-                    fileDiv.innerHTML = `
-                        <p><b>${fileName}</b></p>
-                        <audio controls src="${fileUrl}"></audio>
-                    `;
-                    fileListContainer.appendChild(fileDiv);
-                });
-            } catch (error) {
-                console.error("เกิดข้อผิดพลาดในการโหลดไฟล์:", error);
-                fileListContainer.innerHTML = "<p>เกิดข้อผิดพลาดในการโหลดไฟล์</p>";
+        function showMessage(text, type = 'info') {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.textContent = text;
+            messageBox.style.display = 'block';
+            if (type === 'error') {
+                messageBox.style.backgroundColor = '#f8d7da';
+                messageBox.style.color = '#721c24';
+            } else {
+                messageBox.style.backgroundColor = '#d1e7dd';
+                messageBox.style.color = '#0f5132';
             }
+            setTimeout(() => { messageBox.style.display = 'none'; }, 5000);
         }
 
+        window.logout = function() {
+            signOut(auth).then(() => {
+                window.location.href = "login.html";
+            }).catch((error) => {
+                console.error("Logout failed:", error);
+            });
+        };
+
         async function fetchAllUsersAndLoadDropdown() {
-            const userDropdown = document.getElementById("userDropdown");
             const uniqueUsers = {};
             const submissionsColRef = collection(db, 'submissions_part1');
             
@@ -103,6 +119,7 @@
                 });
             } catch (error) {
                 console.error(`Error fetching user list:`, error);
+                showMessage("ไม่สามารถโหลดรายชื่อผู้ใช้งานได้", "error");
             }
 
             for (const uid in uniqueUsers) {
@@ -111,23 +128,82 @@
                 option.textContent = uniqueUsers[uid];
                 userDropdown.appendChild(option);
             }
-
-            userDropdown.addEventListener('change', (e) => {
-                const selectedUserId = e.target.value;
-                if (selectedUserId) {
-                    loadAudioFiles(selectedUserId);
-                }
-            });
         }
 
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                window.location.href = "login.html";
+        async function loadAudioFiles(userId, selectedDate) {
+            fileListContainer.innerHTML = "<h4>กำลังโหลดรายการไฟล์...</h4>";
+            document.getElementById('messageBox').style.display = 'none';
+
+            if (!userId || !selectedDate) {
+                fileListContainer.innerHTML = "<p>กรุณาเลือกผู้ใช้งานและวันที่</p>";
                 return;
             }
-            document.getElementById("userNameDisplay").textContent = user.email;
-            await fetchAllUsersAndLoadDropdown();
-            loadAudioFiles(user.uid);
+
+            const startDate = new Date(selectedDate);
+            startDate.setHours(0, 0, 0, 0);
+            const endDate = new Date(selectedDate);
+            endDate.setHours(23, 59, 59, 999);
+
+            const submissionsColRef = collection(db, 'submissions_part1');
+            const q = query(submissionsColRef,
+                where("uid", "==", userId),
+                where("timestamp", ">=", startDate),
+                where("timestamp", "<=", endDate),
+                orderBy("timestamp")
+            );
+
+            try {
+                const querySnapshot = await getDocs(q);
+                fileListContainer.innerHTML = "";
+                if (querySnapshot.empty) {
+                    fileListContainer.innerHTML = "<p>ไม่พบไฟล์เสียงในวันที่เลือก</p>";
+                    return;
+                }
+
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const fileDiv = document.createElement("div");
+                    fileDiv.className = "file-item";
+                    
+                    const timestampDate = data.timestamp.toDate();
+                    const formattedDate = `${timestampDate.toLocaleDateString()} ${timestampDate.toLocaleTimeString()}`;
+
+                    fileDiv.innerHTML = `
+                        <p><b>Part ${data.part} - คำถามที่ ${data.question}:</b> ${data.text}</p>
+                        <p><b>วันที่ส่ง:</b> ${formattedDate}</p>
+                        <audio controls src="${data.audioUrl}"></audio>
+                    `;
+                    fileListContainer.appendChild(fileDiv);
+                });
+            } catch (error) {
+                console.error("Error loading audio files:", error);
+                showMessage("ไม่สามารถโหลดไฟล์เสียงได้", "error");
+            }
+        }
+
+        // 🟢 Logic การตรวจสอบการเข้าสู่ระบบ
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                // ตรวจสอบอีเมลที่ล็อกอิน
+                if (user.email === adminEmail) {
+                    userNameDisplay.textContent = user.email;
+                    fetchAllUsersAndLoadDropdown();
+                } else {
+                    // หากไม่ใช่ Admin ให้บังคับออกจากระบบและกลับไปหน้าล็อกอิน
+                    alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                    signOut(auth);
+                    window.location.href = "login.html";
+                }
+            } else {
+                // หากยังไม่ได้ล็อกอิน ให้เปลี่ยนเส้นทางไปหน้าล็อกอิน
+                window.location.href = "login.html";
+            }
+        });
+
+        searchBtn.addEventListener('click', () => {
+            const selectedUid = userDropdown.value;
+            const selectedDate = datePicker.value;
+            loadAudioFiles(selectedUid, selectedDate);
         });
     </script>
 </body>
