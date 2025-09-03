@@ -55,11 +55,10 @@
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut, getRedirectResult } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
         import { getFirestore, collection, getDocs, doc, getDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
         import { getStorage, ref, listAll, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
 
-        // *** เปลี่ยนแปลงข้อมูล Firebase Project ของคุณที่นี่ ***
         const firebaseConfig = {
             apiKey: "AIzaSyA4OrZERUoxWPiShCEWVvz1MK9cYGO3_K8",
             authDomain: "new-record-3ccd6.firebaseapp.com",
@@ -75,8 +74,7 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        // 🟢 กำหนดอีเมล Admin ที่ได้รับอนุญาต
-        const adminEmail = "admin@example.com"; 
+        const adminEmail = "armthitikorn@gmail.com"; 
         const userDropdown = document.getElementById("userDropdown");
         const datePicker = document.getElementById("datePicker");
         const searchBtn = document.getElementById("searchBtn");
@@ -99,7 +97,7 @@
 
         window.logout = function() {
             signOut(auth).then(() => {
-                window.location.href = "login.html";
+                window.location.href = "index.html";
             }).catch((error) => {
                 console.error("Logout failed:", error);
             });
@@ -181,24 +179,53 @@
             }
         }
 
-        // 🟢 Logic การตรวจสอบการเข้าสู่ระบบ
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                // ตรวจสอบอีเมลที่ล็อกอิน
-                if (user.email === adminEmail) {
-                    userNameDisplay.textContent = user.email;
-                    fetchAllUsersAndLoadDropdown();
+        async function handleRedirectResult() {
+            try {
+                const result = await getRedirectResult(auth);
+                if (result) {
+                    const user = result.user;
+                    const userRoleDocRef = doc(db, "user_roles", user.uid);
+                    const userRoleDoc = await getDoc(userRoleDocRef);
+                    if (userRoleDoc.exists() && userRoleDoc.data().role === "admin") {
+                        // User is admin, show dashboard
+                        userNameDisplay.textContent = user.email;
+                        fetchAllUsersAndLoadDropdown();
+                    } else {
+                        // Not an admin, sign out and redirect
+                        alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                        await auth.signOut();
+                        window.location.href = "index.html";
+                    }
                 } else {
-                    // หากไม่ใช่ Admin ให้บังคับออกจากระบบและกลับไปหน้าล็อกอิน
-                    alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                    signOut(auth);
-                    window.location.href = "login.html";
+                    // No redirect result, check for existing user
+                    onAuthStateChanged(auth, user => {
+                        if (user) {
+                            // User is already logged in
+                            const userRoleDocRef = doc(db, "user_roles", user.uid);
+                            getDoc(userRoleDocRef).then(userRoleDoc => {
+                                if (userRoleDoc.exists() && userRoleDoc.data().role === "admin") {
+                                    userNameDisplay.textContent = user.email;
+                                    fetchAllUsersAndLoadDropdown();
+                                } else {
+                                    alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                                    auth.signOut();
+                                    window.location.href = "index.html";
+                                }
+                            });
+                        } else {
+                            // No user logged in, redirect to login page
+                            window.location.href = "index.html";
+                        }
+                    });
                 }
-            } else {
-                // หากยังไม่ได้ล็อกอิน ให้เปลี่ยนเส้นทางไปหน้าล็อกอิน
-                window.location.href = "login.html";
+            } catch (error) {
+                console.error("Authentication redirect error:", error);
+                alert("เกิดข้อผิดพลาดในการล็อกอิน: " + error.message);
+                window.location.href = "index.html";
             }
-        });
+        }
+        
+        handleRedirectResult();
 
         searchBtn.addEventListener('click', () => {
             const selectedUid = userDropdown.value;
