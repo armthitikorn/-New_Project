@@ -25,7 +25,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithRedirect, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -45,7 +45,6 @@
 
         onAuthStateChanged(auth, async user => {
             if (user) {
-                // 🟢 ตรวจสอบ role จาก Firestore
                 const userRoleDocRef = doc(db, "user_roles", user.uid);
                 const userRoleDoc = await getDoc(userRoleDocRef);
 
@@ -53,14 +52,15 @@
                     window.location.href = "dashboard.html";
                 } else {
                     alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                    signOut(auth);
+                    auth.signOut();
                 }
             }
         });
 
         document.getElementById('googleLoginBtn').addEventListener('click', async () => {
             try {
-                await signInWithPopup(auth, provider);
+                // 🟢 เปลี่ยนจาก signInWithPopup เป็น signInWithRedirect
+                await signInWithRedirect(auth, provider);
             } catch (error) {
                 console.error("Login failed:", error);
                 alert("การเข้าสู่ระบบล้มเหลว: " + error.message);
