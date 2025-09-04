@@ -130,26 +130,28 @@
             }
         }
 
-        async function loadAudioFiles(userId, selectedDate) {
-            fileListContainer.innerHTML = "<h4>กำลังโหลดรายการไฟล์...</h4>";
-            document.getElementById('messageBox').style.display = 'none';
+       async function loadAudioFiles(userId, selectedDate) {
+    fileListContainer.innerHTML = "<h4>กำลังโหลดรายการไฟล์...</h4>";
+    document.getElementById('messageBox').style.display = 'none';
 
-            if (!userId || !selectedDate) {
-                fileListContainer.innerHTML = "<p>กรุณาเลือกผู้ใช้งานและวันที่</p>";
-                return;
-            }
+    if (!userId || !selectedDate) {
+        fileListContainer.innerHTML = "<p>กรุณาเลือกผู้ใช้งานและวันที่</p>";
+        return;
+    }
+    const startDate = new Date(selectedDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(selectedDate);
+    endDate.setHours(23, 59, 59, 999);
 
-            const startDate = new Date(selectedDate);
-            startDate.setHours(0, 0, 0, 0);
-            const endDate = new Date(selectedDate);
-            endDate.setHours(23, 59, 59, 999);
+    const submissionsColRef = collection(db, 'submissions_part1');
+    const q = query(submissionsColRef,
+        where("uid", "==", userId),
+        where("timestamp", ">=", startDate),
+        where("timestamp", "<=", endDate),
+        orderBy("timestamp")
+    );
+}
 
-            const submissionsColRef = collection(db, 'submissions_part1');
-            const q = query(submissionsColRef,
-                where("uid", "==", userId),
-                where("timestamp", ">=", startDate),
-                where("timestamp", "<=", endDate),
-                orderBy("timestamp")
             );
 
             try {
@@ -204,4 +206,5 @@
     </script>
 </body>
 </html>
+
 
