@@ -20,8 +20,8 @@
         .controls button:hover { background-color: #0056b3; }
         #messageBox {
             display: none;
-            background-color: #d1e7dd;
-            color: #0f5132;
+            background-color = '#f8d7da';
+            color = '#721c24';
             padding: 15px;
             border-radius: 8px;
             text-align: center;
@@ -146,4 +146,38 @@
                         `;
                     } else {
                         fileDiv.innerHTML = `
-                            <p><b>Part ${data.part} - คำถาม
+                            <p><b>Part ${data.part} - คำถามที่ ${data.question}:</b> ${data.text}</p>
+                            <p><b>วันที่ส่ง:</b> ${formattedDate}</p>
+                            <p>ไม่พบไฟล์เสียงสำหรับรายการนี้</p>
+                        `;
+                    }
+                    fileListContainer.appendChild(fileDiv);
+                });
+            } catch (error) {
+                console.error("Error loading audio files:", error);
+                showMessage("ไม่สามารถโหลดไฟล์เสียงได้: " + error.message, "error");
+            }
+        }
+
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                if (user.email === adminEmail) {
+                    userNameDisplay.textContent = user.email;
+                    // ** เพิ่มส่วนนี้กลับเข้ามา **
+                    searchBtn.addEventListener('click', () => {
+                        const selectedEmail = emailInput.value;
+                        const selectedDate = datePicker.value;
+                        loadAudioFiles(selectedEmail, selectedDate);
+                    });
+                } else {
+                    alert("บัญชีของคุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                    signOut(auth);
+                }
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+</script>
+</body>
+</html>
+
