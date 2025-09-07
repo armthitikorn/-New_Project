@@ -56,6 +56,7 @@
         import { getFirestore, collection, getDocs, query, where, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
 
+        // Firebase configuration ของคุณ
         const firebaseConfig = {
             apiKey: "AIzaSyA4OrZERUoxWPiShCEWVvz1MK9cYGO3_K8",
             authDomain: "new-record-3ccd6.firebaseapp.com",
@@ -139,18 +140,15 @@
                     const formattedDate = `${timestampDate.toLocaleDateString()} ${timestampDate.toLocaleTimeString()}`;
 
                     let audioSrc = "";
-                    if (data.audioUrl) {
-                        if (data.audioUrl.startsWith("http")) {
-                            // กรณี Firestore เก็บ URL ตรง
-                            audioSrc = data.audioUrl;
-                        } else {
-                            // กรณี Firestore เก็บ path → ใช้ Storage ดึง URL
-                            try {
-                                const fileRef = ref(storage, data.audioUrl);
-                                audioSrc = await getDownloadURL(fileRef);
-                            } catch (err) {
-                                console.error("โหลดไฟล์จาก Storage ไม่ได้:", err);
-                            }
+                    // ตรวจสอบว่ามี path ของไฟล์เสียงหรือไม่ (อาจจะเป็น field audioFile หรือ audioPath)
+                    const audioPath = data.audioFile || data.audioPath; 
+                    
+                    if (audioPath) {
+                        try {
+                            const fileRef = ref(storage, audioPath);
+                            audioSrc = await getDownloadURL(fileRef);
+                        } catch (err) {
+                            console.error("โหลดไฟล์จาก Storage ไม่ได้:", err);
                         }
                     }
 
@@ -164,7 +162,7 @@
                         fileDiv.innerHTML = `
                             <p><b>Part ${data.part || "-"} - คำถามที่ ${data.question || "-"}:</b> ${data.text || ""}</p>
                             <p><b>วันที่ส่ง:</b> ${formattedDate}</p>
-                            <p style="color:red;">ไม่พบไฟล์เสียงสำหรับรายการนี้</p>
+                            <p style="color:red;">ไม่พบไฟล์เสียงสำหรับรายการนี้ หรือ URL ไม่ถูกต้อง</p>
                         `;
                     }
 
@@ -198,3 +196,4 @@
     </script>
 </body>
 </html>
+
